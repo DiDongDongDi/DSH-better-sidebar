@@ -20,6 +20,8 @@ export const nl: Record<string, string> = {
   changesMdReading: 'Lezen',
   changesHtmlRender: "Renderen",
   changesHtmlRaw: "Bron",
+  changesPdfRender: "Renderen",
+  changesPdfRaw: "Bron",
   changesMdRaw: 'Brontekst',
   changesWrite: 'Schrijven',
   changesEdit: 'Bewerken',

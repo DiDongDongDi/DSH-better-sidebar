@@ -22,6 +22,8 @@ export const tr: Record<string, string> = {
   changesMdReading: 'Okuma',
   changesHtmlRender: "Render",
   changesHtmlRaw: "Kaynak",
+  changesPdfRender: "Render",
+  changesPdfRaw: "Kaynak",
   changesMdRaw: 'Ham',
   changesWrite: 'Yazma',
   changesEdit: 'Düzenleme',

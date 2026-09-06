@@ -23,6 +23,8 @@ export const ar: Record<string, string> = {
   changesMdReading: 'قراءة',
   changesHtmlRender: "عرض",
   changesHtmlRaw: "المصدر",
+  changesPdfRender: "عرض",
+  changesPdfRaw: "المصدر",
   changesMdRaw: 'الخام',
   changesWrite: 'كتابة',
   changesEdit: 'تحرير',

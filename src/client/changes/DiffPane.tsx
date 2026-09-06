@@ -18,6 +18,7 @@ import { resolveSidebarPath } from '../produced-files.ts'
 import { HTML_IFRAME_SANDBOX } from '../html-preview.ts'
 import type { SidebarDiffRef, SidebarTab } from '../state.ts'
 import { DiffRows, ReadRows } from '../diff/DiffRows.tsx'
+import { PdfView } from '../PdfView.tsx'
 import { DiffFiles } from '../diff/DiffFiles.tsx'
 import { langOfPath } from '../diff/highlight.ts'
 import { buildDiffSegments, diffLines, diffStats, parseUnifiedDiff, unifiedSegments, type DiffRow } from '../diff/rows.ts'
@@ -262,6 +263,17 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
     return htmlUrl(scope, resolveSidebarPath(scope.cwd, target.path))
   }, [htmlOp, scope, target])
 
+  // ── PDF render mode: .pdf op targets (read / write / edit, non-error) reuse
+  //    the editor's PdfView verbatim — media-route bytes wrapped into an
+  //    explicitly-typed Blob so the browser's native PDF viewer opens (a
+  //    direct iframe src can fall back to a download). ──────────────────────
+  const pdfOp = target.kind === 'op' && !target.op.isError && /.pdf$/i.test(target.path)
+  const [renderingPdf, setRenderingPdf] = useState(false)
+  const pdfRenderPath = useMemo(() => {
+    if (!pdfOp || target.kind !== 'op') return ''
+    return resolveSidebarPath(scope.cwd, target.path)
+  }, [pdfOp, scope, target])
+
   // Header stats for git targets come off the parsed patch text.
   const gitStats = useMemo(() => {
     if (target.kind !== 'git' || diffText === null || diffText === '') return null
@@ -405,6 +417,17 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
             {t(rendering ? 'changesHtmlRaw' : 'changesHtmlRender')}
           </button>
         )}
+        {pdfOp && (
+          <button
+            type="button"
+            className={css.mdToggle}
+            data-on={renderingPdf ? 'true' : undefined}
+            aria-pressed={renderingPdf}
+            onClick={() => { setRenderingPdf(value => !value) }}
+          >
+            {t(renderingPdf ? 'changesPdfRaw' : 'changesPdfRender')}
+          </button>
+        )}
         <button
           type="button"
           className={css.iconButton}
@@ -417,6 +440,12 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
       </div>
       {target.kind === 'op' && htmlOp && rendering && htmlRenderSrc !== ''
         ? <HtmlRenderPreview src={htmlRenderSrc} title={target.path} />
+        : target.kind === 'op' && pdfOp && renderingPdf && pdfRenderPath !== ''
+        ? (
+          <div className={css.htmlPane}>
+            <PdfView scope={scope} path={pdfRenderPath} title={target.path} />
+          </div>
+        )
         : target.kind === 'op' && mdOp && reading && readingText !== ''
         ? (
           <div className={css.paneBody}>

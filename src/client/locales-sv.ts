@@ -5,6 +5,8 @@ export const sv: Record<string, string> = {
   changesMdReading: 'Läsning',
   changesHtmlRender: "Rendera",
   changesHtmlRaw: "Källa",
+  changesPdfRender: "Rendera",
+  changesPdfRaw: "Källa",
   changesMdRaw: 'Råtext',
   changesWrite: 'Skriv',
   changesEdit: 'Redigera',

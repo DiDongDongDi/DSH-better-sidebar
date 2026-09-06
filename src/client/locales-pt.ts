@@ -5,6 +5,8 @@ export const pt: Record<string, string> = {
   changesMdReading: 'Leitura',
   changesHtmlRender: "Renderizar",
   changesHtmlRaw: "Fonte",
+  changesPdfRender: "Renderizar",
+  changesPdfRaw: "Fonte",
   changesMdRaw: 'Bruto',
   changesWrite: 'Escrita',
   changesEdit: 'Edição',

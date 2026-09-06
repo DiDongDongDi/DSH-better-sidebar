@@ -13,6 +13,8 @@ export const it: Record<string, string> = {
   changesMdReading: 'Lettura',
   changesHtmlRender: "Render",
   changesHtmlRaw: "Sorgente",
+  changesPdfRender: "Render",
+  changesPdfRaw: "Sorgente",
   changesMdRaw: 'Grezzo',
   changesWrite: 'Scrittura',
   changesEdit: 'Modifica',

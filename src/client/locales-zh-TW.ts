@@ -37,6 +37,8 @@ export const zhTW: Record<string, string> = {
   changesMdReading: '閱讀',
   changesHtmlRender: "渲染",
   changesHtmlRaw: "原文",
+  changesPdfRender: "渲染",
+  changesPdfRaw: "原文",
   changesMdRaw: '原文',
   changesWrite: '寫入',
   changesEdit: '編輯',

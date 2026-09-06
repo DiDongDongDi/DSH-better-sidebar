@@ -15,6 +15,8 @@ export const fr: Record<string, string> = {
   changesMdReading: 'Lecture',
   changesHtmlRender: "Rendu",
   changesHtmlRaw: "Source",
+  changesPdfRender: "Rendu",
+  changesPdfRaw: "Source",
   changesMdRaw: 'Brut',
   changesWrite: 'Écriture',
   changesEdit: 'Modification',

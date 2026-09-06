@@ -14,6 +14,8 @@ export const ko: Record<string, string> = {
   changesMdReading: '읽기',
   changesHtmlRender: "렌더링",
   changesHtmlRaw: "원문",
+  changesPdfRender: "렌더링",
+  changesPdfRaw: "원문",
   changesMdRaw: '원문',
   changesWrite: '쓰기',
   changesEdit: '편집',

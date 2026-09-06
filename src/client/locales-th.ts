@@ -22,6 +22,8 @@ export const th: Record<string, string> = {
   changesMdReading: 'อ่าน',
   changesHtmlRender: "เรนเดอร์",
   changesHtmlRaw: "ต้นฉบับ",
+  changesPdfRender: "เรนเดอร์",
+  changesPdfRaw: "ต้นฉบับ",
   changesMdRaw: 'ดิบ',
   changesWrite: 'เขียน',
   changesEdit: 'แก้ไข',

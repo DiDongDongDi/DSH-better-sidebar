@@ -22,6 +22,8 @@ export const hi: Record<string, string> = {
   changesMdReading: 'पठन',
   changesHtmlRender: "रेंडर",
   changesHtmlRaw: "मूल",
+  changesPdfRender: "रेंडर",
+  changesPdfRaw: "मूल",
   changesMdRaw: 'मूल पाठ',
   changesWrite: 'लिखना',
   changesEdit: 'संपादन',

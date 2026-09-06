@@ -20,6 +20,8 @@ export const id: Record<string, string> = {
   changesMdReading: 'Baca',
   changesHtmlRender: "Render",
   changesHtmlRaw: "Sumber",
+  changesPdfRender: "Render",
+  changesPdfRaw: "Sumber",
   changesMdRaw: 'Mentah',
   changesWrite: 'Tulis',
   changesEdit: 'Edit',

@@ -18,6 +18,8 @@ export const ru: Record<string, string> = {
   changesMdReading: 'Чтение',
   changesHtmlRender: "Рендер",
   changesHtmlRaw: "Исходник",
+  changesPdfRender: "Рендер",
+  changesPdfRaw: "Исходник",
   changesMdRaw: 'Исходный текст',
   changesWrite: 'Запись',
   changesEdit: 'Изменение',

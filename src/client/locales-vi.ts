@@ -22,6 +22,8 @@ export const vi: Record<string, string> = {
   changesMdReading: 'Đọc',
   changesHtmlRender: "Kết xuất",
   changesHtmlRaw: "Nguyên văn",
+  changesPdfRender: "Kết xuất",
+  changesPdfRaw: "Nguyên văn",
   changesMdRaw: 'Gốc',
   changesWrite: 'Ghi',
   changesEdit: 'Chỉnh sửa',

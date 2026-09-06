@@ -8,6 +8,8 @@ export const de: Record<string, string> = {
   changesMdReading: 'Lesen',
   changesHtmlRender: "Rendern",
   changesHtmlRaw: "Quelltext",
+  changesPdfRender: "Rendern",
+  changesPdfRaw: "Quelltext",
   changesMdRaw: 'Rohfassung',
   changesWrite: 'Schreiben',
   changesEdit: 'Bearbeiten',
