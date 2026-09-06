@@ -10,16 +10,18 @@
  * Security posture: every HTML string (block leaves, inline text, wrapper
  * open-tag attributes) goes through DOMPurify with an explicit denylist on
  * top of its defaults (no script/style/iframe/forms), anchors are forced to
- * open in a new tab with noopener, and local media `src` attributes are
- * rewritten through the session-scoped `/sidebar/file` media route — the same
- * trust fence the markdown image rewriter (`markdown-images.ts`) uses.
+ * open in a new tab with noopener, and local media goes through the
+ * session-scoped `/sidebar/file` media route — markdown-syntax image
+ * destinations are rewritten via `markdown-images.ts` and `src` attributes
+ * through `resolveLocalMediaDest` (the same trust fence).
  */
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { createElement, type ReactNode } from 'react'
 import DOMPurify from 'dompurify'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import { markdownTextProps } from './markdown-labels.tsx'
-import { resolveLocalMediaDest } from './markdown-images.ts'
+import { lazyChunkComponent } from './lazy-chunk.tsx'
+import { resolveLocalMediaDest, rewriteLocalImageUrls } from './markdown-images.ts'
 import {
   analyzeHtmlSegment,
   type AnalyzedMarkdownHtml,
@@ -233,7 +235,12 @@ export function MarkdownDocument({ info, media, codeLabels }: MarkdownDocumentPr
   const prepared = useMemo<PreparedSegment[]>(() => info.segments.map((segment): PreparedSegment => {
     if (segment.kind === 'markdown') {
       const defs = info.referenceDefinitions
-      const text = defs === '' ? segment.text : `${segment.text}\n\n${defs}`
+      const raw = defs === '' ? segment.text : `${segment.text}\n\n${defs}`
+      // MarkdownText drops non-http(s) image destinations (chat-security
+      // stance), so rewrite local ones into /sidebar/file media URLs first —
+      // the same trust fence the sanitized HTML leaves below go through.
+      // Idempotent: already-absolute media URLs pass through untouched.
+      const text = rewriteLocalImageUrls(raw, media.scope, media.path, media.origin)
       return {
         kind: 'markdown',
         text,
