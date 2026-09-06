@@ -32,9 +32,13 @@ import { createFrameBatcher } from '../frame-batcher.ts'
 import css from './changes.module.css'
 import diffCss from '../diff/diff.module.css'
 
-/** The drag handle height clamp (px) and keyboard-resize step. */
+/** Drag handle height clamp (px) and keyboard-resize step. */
 const HEIGHT_MIN = 140
 const HEIGHT_STEP = 24
+
+/** The redaction preference, persisted under the repo's sidebar storage
+ *  prefix (see state.ts's `dsh-sidebar:v1`). */
+const REDACTION_KEY = 'dsh-sidebar:v1:redaction'
 
 /** What the pane is showing right now. */
 export type ChangesPreview =
@@ -76,6 +80,43 @@ export function HtmlRenderPreview(props: { src: string; title: string }) {
         referrerPolicy="no-referrer"
         allow=""
       />
+    </div>
+  )
+}
+
+/** One header pill toggle — the redaction / reading / render toggles share
+ *  the shape (on-state styling + aria-pressed). */
+function PaneToggle(props: { on: boolean; label: string; title?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={css.mdToggle}
+      data-on={props.on ? 'true' : undefined}
+      aria-pressed={props.on}
+      title={props.title}
+      onClick={props.onClick}
+    >
+      {props.label}
+    </button>
+  )
+}
+
+/** The reading-mode body of one markdown op target: the shared MarkdownText
+ *  pass (local image destinations already rewritten to the media route by
+ *  the caller). Mermaid fences render through the same chunk-resident
+ *  renderer the editor preview uses (one MarkdownText pass with the fences
+ *  lifted out); the plain path stays byte-for-byte for documents without
+ *  any. */
+function MdReadingView(props: { text: string }) {
+  const codeLabels = { copyLabel: t('copy'), copiedLabel: t('copied') }
+  const hasMermaid = splitMermaidBlocks(props.text).some((block) => block.kind === 'mermaid')
+  return (
+    <div className={css.paneBody}>
+      <div className={css.mdBody}>
+        {hasMermaid
+          ? <LazyMermaidMarkdown text={props.text} codeLabels={codeLabels} />
+          : <MarkdownText {...markdownTextProps(props.text, codeLabels)} />}
+      </div>
     </div>
   )
 }
@@ -180,33 +221,44 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
   // only thing that can reach the DOM while the toggle is on. Display-only:
   // session events and the fs layer keep their original bytes.
   const [redactionOn, setRedactionOn] = useState((): boolean => {
-    try { return localStorage.getItem('dsh-better-sidebar.redaction') !== '0' } catch { return true }
+    try { return localStorage.getItem(REDACTION_KEY) !== '0' } catch { return true }
   })
   const toggleRedaction = (): void => {
     setRedactionOn((prev) => {
       const next = !prev
-      try { localStorage.setItem('dsh-better-sidebar.redaction', next ? '1' : '0') } catch { /* storage unavailable */ }
+      try { localStorage.setItem(REDACTION_KEY, next ? '1' : '0') } catch { /* storage unavailable */ }
       return next
     })
   }
   const { op, prior, redactionHit } = useMemo(() => {
+    if (opRaw === null || !redactionOn) return { op: opRaw, prior: priorRaw, redactionHit: false }
     const path = target.kind === 'op' ? target.path : ''
-    if (opRaw === null || !redactionOn) {
-      return { op: opRaw, prior: priorRaw, redactionHit: false }
+    // One redactText pass per field: the outcome carries both the masked
+    // text and whether anything was hit.
+    const mask = (text: string | undefined): { masked: string | undefined; hit: boolean } => {
+      if (text === undefined) return { masked: undefined, hit: false }
+      const outcome = redactText(path, text)
+      return { masked: outcome.text, hit: outcome.hit }
     }
-    const mask = (text: string): string => redactText(path, text).text
-    const hit = [opRaw.read, opRaw.content, opRaw.edit?.oldString, opRaw.edit?.newString, opRaw.errorText, priorRaw]
-      .some((text) => text !== undefined && redactText(path, text).hit)
+    const read = mask(opRaw.read)
+    const content = mask(opRaw.content)
+    const editOld = mask(opRaw.edit?.oldString)
+    const editNew = mask(opRaw.edit?.newString)
+    const errorText = mask(opRaw.errorText)
+    const priorMasked = mask(priorRaw)
+    const hit = read.hit || content.hit || editOld.hit || editNew.hit || errorText.hit || priorMasked.hit
     if (!hit) return { op: opRaw, prior: priorRaw, redactionHit: false }
     const redacted: FileOp = {
       ...opRaw,
-      ...(opRaw.read !== undefined ? { read: mask(opRaw.read) } : {}),
-      ...(opRaw.content !== undefined ? { content: mask(opRaw.content) } : {}),
-      ...(opRaw.edit !== undefined ? { edit: { oldString: mask(opRaw.edit.oldString), newString: mask(opRaw.edit.newString) } } : {}),
-      ...(opRaw.errorText !== undefined ? { errorText: mask(opRaw.errorText) } : {}),
+      ...(read.masked !== undefined ? { read: read.masked } : {}),
+      ...(content.masked !== undefined ? { content: content.masked } : {}),
+      ...(opRaw.edit !== undefined
+        ? { edit: { oldString: editOld.masked ?? opRaw.edit.oldString, newString: editNew.masked ?? opRaw.edit.newString } }
+        : {}),
+      ...(errorText.masked !== undefined ? { errorText: errorText.masked } : {}),
     }
-    return { op: redacted, prior: priorRaw === undefined ? undefined : mask(priorRaw), redactionHit: true }
-  }, [opRaw, priorRaw, target, redactionOn]);
+    return { op: redacted, prior: priorMasked.masked, redactionHit: true }
+  }, [opRaw, priorRaw, target, redactionOn])
   const opLang = useMemo(() => (target.kind === 'op' ? langOfPath(target.path) : undefined), [target])
   const opRows = useMemo(() => (op === null ? [] : diffOf(op, prior)), [op, prior])
   const opSegments = useMemo(() => buildDiffSegments(opRows), [opRows])
@@ -240,23 +292,15 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
       : ''),
     [mdOp, reading, readingSrc, scope, target],
   )
-  // Mermaid fences render through the same chunk-resident renderer the editor
-  // preview uses (one MarkdownText pass with the mermaid fences lifted out);
-  // the plain single-pass path stays byte-for-byte for documents without any.
-  const readingHasMermaid = useMemo(
-    () => (readingText !== '' ? splitMermaidBlocks(readingText).some((block) => block.kind === 'mermaid') : false),
-    [readingText],
-  )
-  const codeLabels = { copyLabel: t('copy'), copiedLabel: t('copied') }
 
-  // ── HTML render mode: .html/.htm/.xhtml op targets load the SAVED file
-  //    through the same /sidebar/html route the editor's html viewer uses —
-  //    relative assets (./style.css, img/x.png) resolve inside the route, and
-  //    a segmented read still renders the whole document (the route serves
-  //    the file, not the op snapshot). The frame is always sandboxed (the
-  //    attribute plus the route's CSP sandbox header); the editor tab owns
-  //    the warned no-sandbox escape hatch. ─────────────────────────────────
-  const htmlOp = target.kind === 'op' && !target.op.isError && /\.(html?|xhtml)$/i.test(target.path)
+  // ── HTML render mode: .html/.htm op targets (the editor html viewer's
+  //    ext set) load the SAVED file through the same /sidebar/html route the
+  //    editor's html viewer uses — relative assets (./style.css, img/x.png)
+  //    resolve inside the route, and a segmented read still renders the
+  //    whole document (the route serves the file, not the op snapshot). The
+  //    frame is always sandboxed (the attribute plus the route's CSP sandbox
+  //    header); the editor tab owns the warned no-sandbox escape hatch. ──
+  const htmlOp = target.kind === 'op' && !target.op.isError && /\.(html?)$/i.test(target.path)
   const [rendering, setRendering] = useState(false)
   const htmlRenderSrc = useMemo(() => {
     if (!htmlOp || target.kind !== 'op') return ''
@@ -380,42 +424,30 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
             </button>
           </>
         )}
-        {redactionHit && redactionOn && (
+        {redactionHit && (
           <span className={css.redactBanner} role="status">{t('changesRedactBanner')}</span>
         )}
         {target.kind === 'op' && (
-          <button
-            type="button"
-            className={css.mdToggle}
-            data-on={redactionOn ? 'true' : undefined}
-            aria-pressed={redactionOn}
-            onClick={toggleRedaction}
+          <PaneToggle
+            on={redactionOn}
+            label={redactionOn ? t('changesRedactOnLabel') : t('changesRedactOffLabel')}
             title={redactionOn ? t('changesRedactOff') : t('changesRedactOn')}
-          >
-            {redactionOn ? t('changesRedactOnLabel') : t('changesRedactOffLabel')}
-          </button>
+            onClick={toggleRedaction}
+          />
         )}
         {mdOp && (
-          <button
-            type="button"
-            className={css.mdToggle}
-            data-on={reading ? 'true' : undefined}
-            aria-pressed={reading}
+          <PaneToggle
+            on={reading}
+            label={t(reading ? 'changesMdRaw' : 'changesMdReading')}
             onClick={() => { setReading(value => !value) }}
-          >
-            {t(reading ? 'changesMdRaw' : 'changesMdReading')}
-          </button>
+          />
         )}
         {htmlOp && (
-          <button
-            type="button"
-            className={css.mdToggle}
-            data-on={rendering ? 'true' : undefined}
-            aria-pressed={rendering}
+          <PaneToggle
+            on={rendering}
+            label={t(rendering ? 'changesHtmlRaw' : 'changesHtmlRender')}
             onClick={() => { setRendering(value => !value) }}
-          >
-            {t(rendering ? 'changesHtmlRaw' : 'changesHtmlRender')}
-          </button>
+          />
         )}
         {pdfOp && (
           <button
@@ -447,15 +479,7 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
           </div>
         )
         : target.kind === 'op' && mdOp && reading && readingText !== ''
-        ? (
-          <div className={css.paneBody}>
-            <div className={css.mdBody}>
-              {readingHasMermaid
-                ? <LazyMermaidMarkdown text={readingText} codeLabels={codeLabels} />
-                : <MarkdownText {...markdownTextProps(readingText, codeLabels)} />}
-            </div>
-          </div>
-        )
+        ? <MdReadingView text={readingText} />
         : target.kind === 'op' && op !== null && op.isError
         ? (
           <div className={css.paneBody}>

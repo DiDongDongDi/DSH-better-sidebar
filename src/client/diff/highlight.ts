@@ -172,8 +172,8 @@ const CSS_LANG: LangConfig = {
     html body p a div span li ul ol table tr td th form input button label select textarea img
     section header footer main nav article aside h1 h2 h3 h4 h5 h6 i b em strong small pre code
     inherit initial unset auto none fixed absolute relative sticky static flex block inline
-    inline-block inline-flex grid hidden visible hidden bold normal inherit root var calc env`),
-  constants: kw('true false'),
+    inline-block inline-flex grid hidden visible bold normal root var calc env`),
+  constants: new Set(),
   macro: false,
   wordStart: /[A-Za-z-]/u,
   wordBody: /[A-Za-z0-9-]/u,
@@ -200,17 +200,9 @@ const MARKUP_LANG: LangConfig = {
 /** Extension → language id, mirroring the read tool's hint table. */
 const LANGS: Readonly<Record<string, LangConfig>> = {
   ts: C_FAMILY(TS_WORDS),
-  tsx: C_FAMILY(`abstract any as asserts async await boolean break case catch class const constructor
-    continue declare default delete do else enum export extends false finally for from function get
-    if implements import in infer instanceof interface is keyof let module namespace never new null
-    number object of override private protected public readonly return satisfies set static string
-    super switch symbol this throw true try type typeof undefined union unknown var void while with
-    yield`),
+  tsx: C_FAMILY(TS_WORDS),
   js: C_FAMILY(JS_WORDS),
-  jsx: C_FAMILY(`async await break case catch class const continue debugger default delete do else
-    export extends false finally for from function get if implements import in instanceof interface
-    let new null of return set static super switch this throw true try typeof undefined var void
-    while with yield`),
+  jsx: C_FAMILY(JS_WORDS),
   json: CONFIG_LANG,
   py: HASH_FAMILY(`and as assert async await break class continue def del elif else except finally
     for from global if import in is lambda nonlocal not or pass raise return try while with yield

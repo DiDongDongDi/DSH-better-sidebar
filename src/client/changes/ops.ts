@@ -202,6 +202,18 @@ export function knownContentBefore(ops: readonly FileOp[], path: string, before:
 }
 
 /**
+ * The read-tool response's `<content>` body split into lines with the
+ * "(Showing lines …)" note dropped — the shared envelope core both read
+ * parsers consume: {@link parseReadLines} recovers line numbers from the
+ * "<n>: " prefixes, {@link parseReadContent} keeps the raw text.
+ */
+function contentLines(raw: string): string[] {
+  const contentMatch = raw.match(/<content>([\s\S]*?)<\/content>/)
+  const body = contentMatch ? contentMatch[1]! : raw
+  return body.split('\n').filter((line) => !/^\s*\(Showing lines .*\)\s*$/.test(line))
+}
+
+/**
  * Strip the DSH read-tool response envelope down to the file's raw content,
  * PRESERVING blank lines (unlike {@link parseReadLines}, which drops them):
  * drops the <content> wrapper, the "(Showing lines ...)" note, and the
@@ -209,11 +221,7 @@ export function knownContentBefore(ops: readonly FileOp[], path: string, before:
  * because markdown block structure depends on them.
  */
 export function parseReadContent(raw: string): string {
-  const contentMatch = raw.match(/<content>([\s\S]*?)<\/content>/)
-  const body = contentMatch ? contentMatch[1]! : raw
-  return body
-    .split('\n')
-    .filter((line) => !/^\s*\(Showing lines .*\)\s*$/.test(line))
+  return contentLines(raw)
     .map((line) => line.replace(/^\s*\d+:\s/, ''))
     .join('\n')
     .replace(/^[\n]+/, '')
@@ -229,12 +237,9 @@ export interface ReadLine { readonly line: number; readonly text: string }
  * "<n>: " prefix as the line number, falling back to sequential counting.
  */
 export function parseReadLines(raw: string): ReadLine[] {
-  const contentMatch = raw.match(/<content>([\s\S]*?)<\/content>/)
-  const body = contentMatch ? contentMatch[1]! : raw
   const result: ReadLine[] = []
   let fallback = 1
-  for (const line of body.split('\n')) {
-    if (/^\s*\(Showing lines .*\)\s*$/.test(line)) continue
+  for (const line of contentLines(raw)) {
     if (line.length === 0) continue
     const match = line.match(/^\s*(\d+):\s?(.*)$/)
     if (match !== null) {
