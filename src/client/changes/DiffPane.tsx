@@ -311,7 +311,7 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
   //    the editor's PdfView verbatim — media-route bytes wrapped into an
   //    explicitly-typed Blob so the browser's native PDF viewer opens (a
   //    direct iframe src can fall back to a download). ──────────────────────
-  const pdfOp = target.kind === 'op' && !target.op.isError && /.pdf$/i.test(target.path)
+  const pdfOp = target.kind === 'op' && !target.op.isError && /\.pdf$/i.test(target.path)
   const [renderingPdf, setRenderingPdf] = useState(false)
   const pdfRenderPath = useMemo(() => {
     if (!pdfOp || target.kind !== 'op') return ''
@@ -450,15 +450,11 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
           />
         )}
         {pdfOp && (
-          <button
-            type="button"
-            className={css.mdToggle}
-            data-on={renderingPdf ? 'true' : undefined}
-            aria-pressed={renderingPdf}
+          <PaneToggle
+            on={renderingPdf}
+            label={t(renderingPdf ? 'changesPdfRaw' : 'changesPdfRender')}
             onClick={() => { setRenderingPdf(value => !value) }}
-          >
-            {t(renderingPdf ? 'changesPdfRaw' : 'changesPdfRender')}
-          </button>
+          />
         )}
         <button
           type="button"
