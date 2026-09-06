@@ -13,6 +13,8 @@ export const fr: Record<string, string> = {
   changesSessionEmpty: 'Aucune opération de fichier dans cette session',
   changesRead: 'Lecture',
   changesMdReading: 'Lecture',
+  changesHtmlRender: "Rendu",
+  changesHtmlRaw: "Source",
   changesMdRaw: 'Brut',
   changesWrite: 'Écriture',
   changesEdit: 'Modification',

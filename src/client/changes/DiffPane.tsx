@@ -11,10 +11,11 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { IconCloseOutline16, IconRefreshOutline16, IconRightUpOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionScope } from '../api.ts'
-import { api } from '../api.ts'
+import { api, htmlUrl } from '../api.ts'
 import { t } from '../locales.ts'
 import { baseName } from '../paths.ts'
 import { resolveSidebarPath } from '../produced-files.ts'
+import { HTML_IFRAME_SANDBOX } from '../html-preview.ts'
 import type { SidebarDiffRef, SidebarTab } from '../state.ts'
 import { DiffRows, ReadRows } from '../diff/DiffRows.tsx'
 import { DiffFiles } from '../diff/DiffFiles.tsx'
@@ -58,6 +59,24 @@ function diffOf(op: FileOp, prior: string | undefined): readonly DiffRow[] {
     return diffLines(old ?? '', content)
   }
   return []
+}
+
+/** The render view of one html op target: the route-src iframe. Extracted
+ *  (and exported) so the always-sandboxed contract is pinned directly by the
+ *  sandbox spec — this surface has NO no-sandbox escape hatch. */
+export function HtmlRenderPreview(props: { src: string; title: string }) {
+  return (
+    <div className={css.htmlPane}>
+      <iframe
+        className={css.htmlFrame}
+        title={props.title}
+        src={props.src}
+        sandbox={HTML_IFRAME_SANDBOX}
+        referrerPolicy="no-referrer"
+        allow=""
+      />
+    </div>
+  )
 }
 
 /** The diff tab a git preview expands into (the shell owns placement). */
@@ -229,6 +248,20 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
   )
   const codeLabels = { copyLabel: t('copy'), copiedLabel: t('copied') }
 
+  // ── HTML render mode: .html/.htm/.xhtml op targets load the SAVED file
+  //    through the same /sidebar/html route the editor's html viewer uses —
+  //    relative assets (./style.css, img/x.png) resolve inside the route, and
+  //    a segmented read still renders the whole document (the route serves
+  //    the file, not the op snapshot). The frame is always sandboxed (the
+  //    attribute plus the route's CSP sandbox header); the editor tab owns
+  //    the warned no-sandbox escape hatch. ─────────────────────────────────
+  const htmlOp = target.kind === 'op' && !target.op.isError && /\.(html?|xhtml)$/i.test(target.path)
+  const [rendering, setRendering] = useState(false)
+  const htmlRenderSrc = useMemo(() => {
+    if (!htmlOp || target.kind !== 'op') return ''
+    return htmlUrl(scope, resolveSidebarPath(scope.cwd, target.path))
+  }, [htmlOp, scope, target])
+
   // Header stats for git targets come off the parsed patch text.
   const gitStats = useMemo(() => {
     if (target.kind !== 'git' || diffText === null || diffText === '') return null
@@ -361,6 +394,17 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
             {t(reading ? 'changesMdRaw' : 'changesMdReading')}
           </button>
         )}
+        {htmlOp && (
+          <button
+            type="button"
+            className={css.mdToggle}
+            data-on={rendering ? 'true' : undefined}
+            aria-pressed={rendering}
+            onClick={() => { setRendering(value => !value) }}
+          >
+            {t(rendering ? 'changesHtmlRaw' : 'changesHtmlRender')}
+          </button>
+        )}
         <button
           type="button"
           className={css.iconButton}
@@ -371,7 +415,9 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
           <IconCloseOutline16 size={14} />
         </button>
       </div>
-      {target.kind === 'op' && mdOp && reading && readingText !== ''
+      {target.kind === 'op' && htmlOp && rendering && htmlRenderSrc !== ''
+        ? <HtmlRenderPreview src={htmlRenderSrc} title={target.path} />
+        : target.kind === 'op' && mdOp && reading && readingText !== ''
         ? (
           <div className={css.paneBody}>
             <div className={css.mdBody}>

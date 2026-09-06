@@ -18,6 +18,8 @@ export const nl: Record<string, string> = {
   changesSessionEmpty: 'Nog geen bestandsbewerkingen in deze sessie',
   changesRead: 'Lezen',
   changesMdReading: 'Lezen',
+  changesHtmlRender: "Renderen",
+  changesHtmlRaw: "Bron",
   changesMdRaw: 'Brontekst',
   changesWrite: 'Schrijven',
   changesEdit: 'Bewerken',

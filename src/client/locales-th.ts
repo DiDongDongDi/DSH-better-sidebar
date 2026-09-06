@@ -20,6 +20,8 @@ export const th: Record<string, string> = {
   changesSessionEmpty: 'ยังไม่มีการดำเนินการไฟล์ในเซสชันนี้',
   changesRead: 'อ่าน',
   changesMdReading: 'อ่าน',
+  changesHtmlRender: "เรนเดอร์",
+  changesHtmlRaw: "ต้นฉบับ",
   changesMdRaw: 'ดิบ',
   changesWrite: 'เขียน',
   changesEdit: 'แก้ไข',

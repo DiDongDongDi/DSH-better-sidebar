@@ -18,6 +18,8 @@ export const id: Record<string, string> = {
   changesSessionEmpty: 'Belum ada operasi file di sesi ini',
   changesRead: 'Baca',
   changesMdReading: 'Baca',
+  changesHtmlRender: "Render",
+  changesHtmlRaw: "Sumber",
   changesMdRaw: 'Mentah',
   changesWrite: 'Tulis',
   changesEdit: 'Edit',

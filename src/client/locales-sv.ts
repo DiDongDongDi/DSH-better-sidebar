@@ -3,6 +3,8 @@ export const sv: Record<string, string> = {
   changesSessionEmpty: 'Inga filoperationer i den här sessionen ännu',
   changesRead: 'Läs',
   changesMdReading: 'Läsning',
+  changesHtmlRender: "Rendera",
+  changesHtmlRaw: "Källa",
   changesMdRaw: 'Råtext',
   changesWrite: 'Skriv',
   changesEdit: 'Redigera',

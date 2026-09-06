@@ -20,6 +20,8 @@ export const tr: Record<string, string> = {
   changesSessionEmpty: 'Bu oturumda henüz dosya işlemi yok',
   changesRead: 'Okuma',
   changesMdReading: 'Okuma',
+  changesHtmlRender: "Render",
+  changesHtmlRaw: "Kaynak",
   changesMdRaw: 'Ham',
   changesWrite: 'Yazma',
   changesEdit: 'Düzenleme',

@@ -21,6 +21,8 @@ export const ar: Record<string, string> = {
   changesSessionEmpty: 'لا توجد عمليات ملفات في هذه الجلسة بعد',
   changesRead: 'قراءة',
   changesMdReading: 'قراءة',
+  changesHtmlRender: "عرض",
+  changesHtmlRaw: "المصدر",
   changesMdRaw: 'الخام',
   changesWrite: 'كتابة',
   changesEdit: 'تحرير',

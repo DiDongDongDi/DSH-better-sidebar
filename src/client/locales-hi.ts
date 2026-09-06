@@ -20,6 +20,8 @@ export const hi: Record<string, string> = {
   changesSessionEmpty: 'इस सत्र में अभी कोई फ़ाइल ऑपरेशन नहीं',
   changesRead: 'पढ़ना',
   changesMdReading: 'पठन',
+  changesHtmlRender: "रेंडर",
+  changesHtmlRaw: "मूल",
   changesMdRaw: 'मूल पाठ',
   changesWrite: 'लिखना',
   changesEdit: 'संपादन',

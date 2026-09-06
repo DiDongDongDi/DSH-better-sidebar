@@ -20,6 +20,8 @@ export const ja: Record<string, string> = {
   changesSessionEmpty: 'このセッションにはファイル操作がまだありません',
   changesRead: '読み取り',
   changesMdReading: '閲覧',
+  changesHtmlRender: "レンダリング",
+  changesHtmlRaw: "原文",
   changesMdRaw: '原文',
   changesWrite: '書き込み',
   changesEdit: '編集',

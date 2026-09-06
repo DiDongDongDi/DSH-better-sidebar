@@ -20,6 +20,8 @@ export const vi: Record<string, string> = {
   changesSessionEmpty: 'Chưa có thao tác tệp nào trong phiên này',
   changesRead: 'Đọc',
   changesMdReading: 'Đọc',
+  changesHtmlRender: "Kết xuất",
+  changesHtmlRaw: "Nguyên văn",
   changesMdRaw: 'Gốc',
   changesWrite: 'Ghi',
   changesEdit: 'Chỉnh sửa',

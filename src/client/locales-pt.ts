@@ -3,6 +3,8 @@ export const pt: Record<string, string> = {
   changesSessionEmpty: 'Ainda sem operações de arquivo nesta sessão',
   changesRead: 'Leitura',
   changesMdReading: 'Leitura',
+  changesHtmlRender: "Renderizar",
+  changesHtmlRaw: "Fonte",
   changesMdRaw: 'Bruto',
   changesWrite: 'Escrita',
   changesEdit: 'Edição',
