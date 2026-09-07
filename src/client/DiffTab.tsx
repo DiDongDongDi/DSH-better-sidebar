@@ -100,6 +100,14 @@ export function DiffTab(props: { sessionId: string; cwd: string | undefined; dif
   useEffect(() => { foldContents.current = new Map() }, [diff, tick])
   const foldLoader = useMemo(() => {
     const sidesOf = (file: DiffFile): Promise<{ old: string; new: string }> => {
+      // Both sides empty cannot cover a non-empty fold — treat it as a failed
+      // fetch so the fold degrades to the unavailable marker instead of
+      // silently expanding to nothing (the symptom of a bad rev or path
+      // reading null on both sides).
+      const ofSides = (oldContent: string | null, newContent: string | null): { old: string; new: string } => {
+        if ((oldContent ?? '') === '' && (newContent ?? '') === '') throw new Error('no content on either side')
+        return { old: oldContent ?? '', new: newContent ?? '' }
+      }
       const fetchSides = async (): Promise<{ old: string; new: string }> => {
         const scope: SessionScope = { sessionId, cwd, ...(diff.repoRoot !== undefined ? { repoRoot: diff.repoRoot } : {}) }
         if (diff.kind === 'commit') {
@@ -113,7 +121,7 @@ export function DiffTab(props: { sessionId: string; cwd: string | undefined; dif
               ? Promise.resolve({ content: null })
               : api.gitShow(scope, diff.hashFull, displayPath(file.newPath), diff.worktree),
           ])
-          return { old: oldSide.content ?? '', new: newSide.content ?? '' }
+          return ofSides(oldSide.content, newSide.content)
         }
         // Worktree change: staged is HEAD vs index, unstaged is index vs
         // worktree (the worktree side reads the live file).
@@ -127,7 +135,7 @@ export function DiffTab(props: { sessionId: string; cwd: string | undefined; dif
               ? Promise.resolve({ content: null })
               : api.gitShow(scope, ':0', displayPath(file.newPath), diff.worktree),
           ])
-          return { old: oldSide.content ?? '', new: newSide.content ?? '' }
+          return ofSides(oldSide.content, newSide.content)
         }
         const [oldSide, worktree] = await Promise.all([
           file.oldPath === '/dev/null'
@@ -135,7 +143,7 @@ export function DiffTab(props: { sessionId: string; cwd: string | undefined; dif
             : api.gitShow(scope, ':0', displayPath(file.oldPath), diff.worktree),
           api.fsRead(scope, resolveSidebarPath(diff.repoRoot ?? diff.worktree ?? cwd, displayPath(file.newPath))).catch(() => null),
         ])
-        return { old: oldSide.content ?? '', new: worktree !== null && worktree.kind === 'text' ? worktree.content : '' }
+        return ofSides(oldSide.content, worktree !== null && worktree.kind === 'text' ? worktree.content : null)
       }
       const path = displayPath(file.newPath === '/dev/null' ? file.oldPath : file.newPath)
       let promise = foldContents.current.get(path)

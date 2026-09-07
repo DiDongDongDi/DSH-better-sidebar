@@ -236,6 +236,14 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
   const foldLoader = useMemo(() => {
     if (gitRef === null) return undefined
     const sidesOf = (file: DiffFile): Promise<{ old: string; new: string }> => {
+      // Both sides empty cannot cover a non-empty fold — treat it as a failed
+      // fetch so the fold degrades to the unavailable marker instead of
+      // silently expanding to nothing (the symptom of a bad rev or path
+      // reading null on both sides).
+      const ofSides = (oldContent: string | null, newContent: string | null): { old: string; new: string } => {
+        if ((oldContent ?? '') === '' && (newContent ?? '') === '') throw new Error('no content on either side')
+        return { old: oldContent ?? '', new: newContent ?? '' }
+      }
       const fetchSides = async (): Promise<{ old: string; new: string }> => {
         if (gitRef.kind === 'commit') {
           // The patch's -m --first-parent shape: old side from the parent,
@@ -248,7 +256,7 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
               ? Promise.resolve({ content: null })
               : api.gitShow(gitScope, gitRef.hashFull, displayPath(file.newPath), gitRef.worktree),
           ])
-          return { old: oldSide.content ?? '', new: newSide.content ?? '' }
+          return ofSides(oldSide.content, newSide.content)
         }
         // Worktree change: staged is HEAD vs index, unstaged is index vs
         // worktree (the worktree side reads the live file).
@@ -262,7 +270,7 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
               ? Promise.resolve({ content: null })
               : api.gitShow(gitScope, ':0', displayPath(file.newPath), gitRef.worktree),
           ])
-          return { old: oldSide.content ?? '', new: newSide.content ?? '' }
+          return ofSides(oldSide.content, newSide.content)
         }
         const [oldSide, worktree] = await Promise.all([
           file.oldPath === '/dev/null'
@@ -270,7 +278,7 @@ export function DiffPane({ target, scope, height, onHeightCommit, onClose, onExp
             : api.gitShow(gitScope, ':0', displayPath(file.oldPath), gitRef.worktree),
           api.fsRead(gitScope, resolveSidebarPath(gitRef.repoRoot ?? gitRef.worktree ?? scope.cwd, displayPath(file.newPath))).catch(() => null),
         ])
-        return { old: oldSide.content ?? '', new: worktree !== null && worktree.kind === 'text' ? worktree.content : '' }
+        return ofSides(oldSide.content, worktree !== null && worktree.kind === 'text' ? worktree.content : null)
       }
       const path = displayPath(file.newPath === '/dev/null' ? file.oldPath : file.newPath)
       let promise = foldContents.current.get(path)
