@@ -352,51 +352,72 @@ export function resolveShellExecutable(
   shell: string,
   options: ShellExecutableResolutionOptions = {},
 ): string {
-  const configured = shell.trim()
+  const configured = unquotePath(shell.trim())
   const platform = options.platform ?? process.platform
-  if (platform !== 'win32' || configured === '') return configured
+  if (configured === '') return configured
 
   const env = options.env ?? process.env
   const exists = options.exists ?? existsSync
-  const rawPathext = windowsEnv(env, 'PATHEXT')
-  const executableExts = (rawPathext ?? '.COM;.EXE')
-    .split(';')
-    .map(extension => extension.trim())
-    // node-pty ultimately calls CreateProcess; batch files need an
-    // intermediate cmd.exe and therefore are not valid shell executables.
-    .filter(extension => /^\.(?:com|exe)$/i.test(extension))
-  if (executableExts.length === 0) executableExts.push('.EXE', '.COM')
+  const notFound = (): SidebarError =>
+    new SidebarError('shell-not-found', `shell executable not found: "${configured}"`, 400, { shell: configured })
 
-  const hasExtension = win32Path.extname(configured) !== ''
-  const names = hasExtension
-    ? [configured]
-    : executableExts.map(extension => configured + extension.toLowerCase())
-  const hasPath = win32Path.isAbsolute(configured) || /[\\/]/.test(configured)
-  const candidates: string[] = []
-  if (hasPath) {
-    candidates.push(...names)
-  } else {
-    const path = windowsEnv(env, 'PATH')
-    if (path !== undefined) {
-      for (const dir of path.split(';').map(entry => entry.trim()).filter(Boolean)) {
-        for (const name of names) candidates.push(win32Path.join(dir, name))
+  if (platform === 'win32') {
+    const rawPathext = windowsEnv(env, 'PATHEXT')
+    const executableExts = (rawPathext ?? '.COM;.EXE')
+      .split(';')
+      .map(extension => extension.trim())
+      // node-pty ultimately calls CreateProcess; batch files need an
+      // intermediate cmd.exe and therefore are not valid shell executables.
+      .filter(extension => /^\.(?:com|exe)$/i.test(extension))
+    if (executableExts.length === 0) executableExts.push('.EXE', '.COM')
+
+    const hasExtension = win32Path.extname(configured) !== ''
+    const names = hasExtension
+      ? [configured]
+      : executableExts.map(extension => configured + extension.toLowerCase())
+    const hasPath = win32Path.isAbsolute(configured) || /[\\/]/.test(configured)
+    const candidates: string[] = []
+    if (hasPath) {
+      candidates.push(...names)
+    } else {
+      const path = windowsEnv(env, 'PATH')
+      if (path !== undefined) {
+        for (const dir of path.split(';').map(entry => entry.trim()).filter(Boolean)) {
+          for (const name of names) candidates.push(win32Path.join(dir, name))
+        }
+      }
+      const systemRoot = windowsEnv(env, 'SystemRoot')
+      if (systemRoot !== undefined && systemRoot.trim() !== '') {
+        for (const name of names) candidates.push(win32Path.join(systemRoot, 'System32', name))
+      }
+      if (/^pwsh(?:\.exe)?$/i.test(configured)) {
+        for (const dir of windowsPwshCandidateDirs(env)) {
+          candidates.push(win32Path.join(dir, 'pwsh.exe'))
+        }
       }
     }
-    const systemRoot = windowsEnv(env, 'SystemRoot')
-    if (systemRoot !== undefined && systemRoot.trim() !== '') {
-      for (const name of names) candidates.push(win32Path.join(systemRoot, 'System32', name))
+
+    for (const candidate of [...new Set(candidates)]) {
+      if (exists(candidate)) return candidate
     }
-    if (/^pwsh(?:\.exe)?$/i.test(configured)) {
-      for (const dir of windowsPwshCandidateDirs(env)) {
-        candidates.push(win32Path.join(dir, 'pwsh.exe'))
-      }
-    }
+    throw notFound()
   }
 
-  for (const candidate of [...new Set(candidates)]) {
+  // POSIX: the previous pass-through delegated a wrong name to execvp and the
+  // pty died with a bare "[process exited with code N]". Probe like Windows:
+  // a path with a separator must exist; a bare name is searched along PATH
+  // (the colon form is fixed by the platform). A miss is a clear, actionable
+  // error instead of a cryptic exit code.
+  if (configured.includes('/')) {
+    if (!exists(configured)) throw notFound()
+    return configured
+  }
+  const path = env.PATH ?? '/usr/bin:/bin'
+  for (const dir of path.split(':').map(entry => entry.trim()).filter(Boolean)) {
+    const candidate = join(dir, configured)
     if (exists(candidate)) return candidate
   }
-  throw new SidebarError('pty-error', `shell executable not found: "${configured}"`)
+  throw notFound()
 }
 
 /**
