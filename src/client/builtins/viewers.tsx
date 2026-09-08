@@ -76,6 +76,20 @@ export function builtinViewers(): readonly FileViewerDescriptor[] {
       icon: (size: number) => <IconMarkdownOutline16 size={size} />,
       exts: ['md', 'markdown'],
       fetchStrategy: 'fsRead',
+      // Declarative settings: the directory Obsidian-style embeds
+      // (`![[x.png]]`) resolve against — relative to the session cwd, or an
+      // absolute path (default `images`). Persisted in
+      // pluginSettings['markdown'].imageDir; consumed by the preview's
+      // local-image rewriter (see markdown-images.ts).
+      settings: {
+        pluginToggles: [{
+          key: 'imageDir',
+          type: 'text',
+          title: () => t('settingsImageDirTitle'),
+          desc: () => t('settingsImageDirDesc'),
+          placeholder: t('settingsImageDirPlaceholder'),
+        }],
+      },
       component: (props) => <LazyTextEditor {...props} />,
     },
     {
