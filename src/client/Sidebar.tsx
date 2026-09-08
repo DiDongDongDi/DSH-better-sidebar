@@ -580,6 +580,14 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
     pinTab: (tabId, scope) => {
       store.reduce(s => setTabPin(s, tabId, scope === null ? null : { scope, homeCwd: cwd }))
     },
+    // Add a file tab to the current conversation (tab context menu entry).
+    // Same path as the explorer `@` button — see {@link referenceInChat}.
+    addTabToConversation: (tabId) => {
+      const leaf = leafWithTab(store.getState().tree, tabId)
+      const tab = leaf?.tabs.find(candidate => candidate.id === tabId)
+      if (tab === undefined || tab.type !== 'file' || tab.path === undefined) return
+      referenceInChatShared(ctx, sessionId, cwd, tab.path, false)
+    },
   }), [store, sessionId, cwd, ctx])
 
   // Pinned virtual tabs (sidebar/use-pinned-tabs.ts): cross-session pinned
