@@ -78,6 +78,12 @@ export function TabBar(props: {
    * menu hides the pin entry when unset (legacy callers).
    */
   onPinTab?: (tabId: string, scope: 'workspace' | 'global' | null) => void
+  /**
+   * Add a file tab to the current conversation. When set, file tabs carrying
+   * a path offer an "Add to conversation" entry in the tab context menu
+   * (the shell resolves the path into an @file reference chip).
+   */
+  onAddToConversation?: (tabId: string) => void
   /** Icon resolver for tab labels (reads from the tab descriptor registry). */
   getTabIcon?: (tab: SidebarTab) => ReactNode
   /** Badge resolver for tab labels (reads the descriptor's `badge`; the
@@ -85,7 +91,7 @@ export function TabBar(props: {
   getTabBadge?: (tab: SidebarTab) => ReactNode
 }) {
   const {
-    paneId, tabs, active, onActivate, onClose, onNewTab, newTabOptions, onDropTab, onFloatTab, onPinTab, getTabIcon, getTabBadge,
+    paneId, tabs, active, onActivate, onClose, onNewTab, newTabOptions, onDropTab, onFloatTab, onPinTab, onAddToConversation, getTabIcon, getTabBadge,
   } = props
   const [menuOpen, setMenuOpen] = useState(false)
   // The tab right-click context menu: the target tab plus the cursor
@@ -306,6 +312,14 @@ export function TabBar(props: {
             const targetTab = tabMenuIndex >= 0 ? tabs[tabMenuIndex] : undefined
             const isTerminal = targetTab?.type === 'terminal'
             const isPinnedVirtual = targetTab !== undefined && isPinnedVirtualTab(targetTab)
+            // "Add to conversation": offered for file tabs that carry a path
+            // and whose shell wired the callback. Diff tabs reference a
+            // synthesized patch (no file on disk) and terminals have no
+            // path, so neither qualifies.
+            const isFileTab = targetTab !== undefined && targetTab.type === 'file' && targetTab.path !== undefined
+            const conversationEntry = isFileTab && onAddToConversation !== undefined
+              ? [{ id: 'addToConversation', label: t('addToConversation') }]
+              : []
             const pinEntries = isTerminal && onPinTab !== undefined
               ? targetTab!.pin !== undefined
                 ? [{ id: 'unpin', label: t('unpinTerminal') }]
@@ -326,6 +340,7 @@ export function TabBar(props: {
             }
             return [
               { id: 'float', label: t('moveToFreeWindow') },
+              ...conversationEntry,
               ...pinEntries,
               { id: 'close', label: t('close') },
               { id: 'closeOthers', label: t('closeOtherTabs'), ...(tabs.length <= 1 ? { disabled: true } : {}) },
@@ -341,6 +356,8 @@ export function TabBar(props: {
             if (index < 0) return
             if (id === 'float') {
               onFloatTab(target.tabId)
+            } else if (id === 'addToConversation') {
+              onAddToConversation?.(target.tabId)
             } else if (id === 'pinWorkspace') {
               onPinTab?.(target.tabId, 'workspace')
             } else if (id === 'pinGlobal') {

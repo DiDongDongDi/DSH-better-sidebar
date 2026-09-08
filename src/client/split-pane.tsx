@@ -37,6 +37,13 @@ export interface WorkbenchActions {
    * context menu hides the pin entry (legacy callers).
    */
   pinTab?: (tabId: string, scope: 'workspace' | 'global' | null) => void
+  /**
+   * Add a file tab to the current conversation (tab context menu entry):
+   * the shell resolves the tab's path into an @file reference chip. Only
+   * offered for file tabs carrying a path; absent (no session/conversation)
+   * hides the menu entry.
+   */
+  addTabToConversation?: (tabId: string) => void
 }
 
 /** One divider: pointer-capture drag translating px deltas into fractions.
@@ -218,6 +225,7 @@ function LeafView(props: {
         }}
         onFloatTab={actions.floatTab}
         onPinTab={actions.pinTab}
+        onAddToConversation={actions.addTabToConversation}
       />
       {leaf.tabs.length > 0 ? (
         /*
