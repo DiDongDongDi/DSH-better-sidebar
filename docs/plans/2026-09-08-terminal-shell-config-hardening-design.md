@@ -71,7 +71,7 @@
 - **报错文案合并为单 key**：设计时的 `terminalShellNotFound` + `terminalShellNotFoundHint` 两 key 合并为单个 `terminalShellNotFound`（含 `{name}` 占位符，一句话内含指引），避免跨语言的句子拼接问题。
 - **POSIX 旧契约用例被有意改写**：`tests/pty-helpers.spec.ts` 原用例 `keeps POSIX bare shell resolution delegated to execvp` 锁定「POSIX 裸名直通 execvp」，与本设计冲突，已删除并由 `POSIX: resolves bare names along PATH…` 等新用例替代。
 - **locale 落点为全部 21 词典**：设计原计划只写 zh/en/ja，实施时受 `tests/locales.spec.ts` 的「第三方词典键集必须与 zh 相等」门禁约束，`terminalShellNotFound` 实际落入 `locales.ts`（zh+en 双块）+ 19 个 `locales-*.ts`（共 21 文件 22 处），`chunks/locale.tsx` 的 `Record<CopyKey, string>` 类型检查兜底。
-- **`resolveShellExecutable` 的 JSDoc 同步**：win32 错误码从 `pty-error` 变更为 `shell-not-found` 后，函数上方文档一并更新（commit `cbbed88`）。
+- **`resolveShellExecutable` 的 JSDoc 同步**：win32 错误码从 `pty-error` 变更为 `shell-not-found` 后，函数上方文档一并更新（commit `8704994`）。
 - **本机全量测试基线**：`pnpm test` 在本机（Windows）存在 29 个**预存**环境性失败（5 个 client spec 的 jsdom `reading 'clear'` ×24、smoke 的 git 身份 ×2、git.spec 截断用例、agent-pty 的 node-pty「Signals not supported on windows」unhandled error）。经与 `origin/main` 同法全量对比确认**零新增失败**（main 30 个，feat 29 个——main 上多出的 `git-worktree` 用例为 flaky）。CI 以 CI 环境为准。
 
 ## 交付
