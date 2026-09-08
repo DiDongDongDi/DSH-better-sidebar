@@ -13,7 +13,7 @@
  * the FileViewerProps toolbar callbacks so the host's path-input header
  * renders the controls instead.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { EditorState } from '@codemirror/state'
@@ -23,7 +23,7 @@ import { IconCheckOutline16, IconSendOutline16, MarkdownText } from '@deepseek-a
 import { markdownTextProps } from './markdown-labels.tsx'
 import { api, htmlUrl } from './api.ts'
 import { markdownPreviewSource } from './markdown-frontmatter.ts'
-import { rewriteLocalImageUrls } from './markdown-images.ts'
+import { DEFAULT_IMAGE_DIR, imageDirOf, rewriteLocalImageUrls } from './markdown-images.ts'
 import { languageForPath } from './lang.ts'
 import { cmSurfaceTheme, CmThemeCompartment } from './cm-themes.ts'
 import { isDarkScheme, subscribeColorScheme } from './theme.ts'
@@ -38,7 +38,7 @@ import { MdToc } from './md-toc.tsx'
 import { splitMermaidBlocks } from './mermaid-blocks.ts'
 import { t } from './locales.ts'
 import { HTML_IFRAME_SANDBOX } from './html-preview.ts'
-import type { EditorToolbarState, FileViewerProps } from './service.ts'
+import type { EditorToolbarState, FileViewerProps, SidebarStore } from './service.ts'
 import css from './sidebar.module.css'
 
 /** Previewable files (rendered output vs source editing). */
@@ -52,8 +52,31 @@ type ViewMode = 'preview' | 'edit'
 const previewScrollMemory = new Map<string, number>()
 const previewScrollKey = (scope: { sessionId: string }, path: string): string => `${scope.sessionId}::${path}`
 
+/**
+ * The configured Obsidian-embed image directory (the markdown viewer's
+ * `imageDir` setting row, persisted under `pluginSettings['markdown']`),
+ * reactively — flipping the setting in the Side card re-renders any open
+ * preview. Test compositions without a store always read the default.
+ */
+function useImageDir(store: SidebarStore | undefined): string {
+  const snapshot = useCallback(
+    () => store === undefined
+      ? DEFAULT_IMAGE_DIR
+      : imageDirOf(store.getSnapshot().prefs.pluginSettings['markdown']?.imageDir),
+    [store],
+  )
+  return useSyncExternalStore(
+    useCallback((callback: () => void) => store?.subscribe(callback) ?? (() => { /* no store */ }), [store]),
+    snapshot,
+    // Server rendering (snapshot tests): no store exists there either.
+    snapshot,
+  )
+}
+
 export function TextEditor(props: FileViewerProps) {
   const { ctx, scope, path, viewerId, content, truncated } = props
+  /** The configured Obsidian-embed image directory (markdown viewer setting). */
+  const imageDir = useImageDir(props.store)
   const [mode, setMode] = useState<ViewMode>('preview')
   /** The editor's current text (null while clean); preview renders this. */
   const [draft, setDraft] = useState<string | null>(null)
@@ -346,7 +369,7 @@ export function TextEditor(props: FileViewerProps) {
   /** The preview source with local image destinations rewritten to absolute
    *  media URLs (see {@link rewriteLocalImageUrls}). */
   const previewText = markdown
-    ? rewriteLocalImageUrls(previewMdText, scope, path, window.location.origin)
+    ? rewriteLocalImageUrls(previewMdText, scope, path, window.location.origin, imageDir)
     : previewMdText
   /** md/mermaid block split for the preview (mermaid fences lift out). Split
    *  only in preview mode: edit-mode keystrokes must not re-scan the source. */
@@ -375,9 +398,9 @@ export function TextEditor(props: FileViewerProps) {
    *  `media` identity, so a fresh object per render would re-sanitize every
    *  keystroke. */
   const htmlMedia = useMemo<MarkdownHtmlMedia>(
-    () => ({ scope, path, origin: window.location.origin }),
+    () => ({ scope, path, origin: window.location.origin, imageDir }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scope.sessionId, scope.cwd, path],
+    [scope.sessionId, scope.cwd, path, imageDir],
   )
   const codeLabels = { copyLabel: t('copy'), copiedLabel: t('copied') }
 
