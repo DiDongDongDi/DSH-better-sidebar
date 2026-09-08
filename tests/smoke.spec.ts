@@ -963,6 +963,19 @@ describe('side card settings routes', () => {
     expect(wsCloseReasonOf('plain')).toBe('plain')
   })
 
+  it('caps the close reason by UTF-8 bytes so the ws 123-byte limit holds', () => {
+    // 200 CJK characters are ~600 bytes: a character-count slice would still
+    // overflow the cap `ws` enforces with Buffer.byteLength.
+    const reason = wsCloseReasonOf(new SidebarError(
+      'shell-not-found',
+      'shell executable not found',
+      400,
+      { shell: `/bin/${'终'.repeat(200)}` },
+    ))
+    expect(reason.startsWith('shell-not-found:')).toBe(true)
+    expect(Buffer.byteLength(reason)).toBeLessThanOrEqual(123)
+  })
+
   it('reads the resolved prefs and writes a patch through the seam', async () => {
     const route = mountWithSettings(createFakeSettings())
     const read = await invoke(route, 'settings.get', {})
