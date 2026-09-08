@@ -731,6 +731,25 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
     pinTab: (tabId, scope) => {
       store.reduce(s => setTabPin(s, tabId, scope === null ? null : { scope, homeCwd: cwd }))
     },
+    // Add a file tab to the current conversation (tab context menu entry).
+    // Resolves the open tab's absolute path into the same @file reference
+    // the explorer's @ button uses (relative to the session cwd, structured
+    // chip with a plain `@rel` fallback) — see {@link referenceInChat}.
+    // Guarded like closeTab: terminal/diff tabs carry no file path, and the
+    // menu hides the entry unless the tab type is 'file' with a path, so an
+    // absent path here is defensive only.
+    addTabToConversation: (tabId) => {
+      if (sessionId === undefined) return
+      const current = store.getSnapshot().state
+      if (current === undefined) return
+      const leaf = leafWithTab(current.splits, tabId) ?? leafWithTab(current.bottomSplits, tabId)
+      const tab = leaf?.tabs.find(candidate => candidate.id === tabId)
+      if (tab === undefined || tab.type !== 'file' || tab.path === undefined) return
+      const rel = relativeTo(cwd ?? '', tab.path)
+      if (!insertFileReference(ctx, sessionId, rel)) {
+        appendToDraft(ctx, sessionId, `@${rel}`)
+      }
+    },
   }), [store, sessionId, cwd, ctx, centerColRef])
 
   // Pinned virtual tabs (sidebar/use-pinned-tabs.ts): cross-session pinned

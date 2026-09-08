@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import { EditorState } from '@codemirror/state'
 import { EditorView as CodeMirrorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { IconCheckOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutline16, IconSendOutline16, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import { markdownTextProps } from './markdown-labels.tsx'
 import { api, htmlUrl } from './api.ts'
 import { markdownPreviewSource } from './markdown-frontmatter.ts'
@@ -28,7 +28,8 @@ import { languageForPath } from './lang.ts'
 import { cmSurfaceTheme, CmThemeCompartment } from './cm-themes.ts'
 import { isDarkScheme, subscribeColorScheme } from './theme.ts'
 import { SandboxStatusBar } from './SandboxStatusBar.tsx'
-import { appendToDraft } from './conversation-draft.ts'
+import { appendToDraft, insertFileReference } from './conversation-draft.ts'
+import { relativeTo } from './paths.ts'
 import { useSelectionPopup } from './selection-popup.ts'
 import { buildSelectionInsert, linesOfSelection } from './selection-payload.ts'
 import { analyzeMarkdownHtml } from './markdown-html.ts'
@@ -303,6 +304,21 @@ export function TextEditor(props: FileViewerProps) {
     })
   }
 
+  /**
+   * Add THIS file to the current conversation (toolbar button). Mirrors the
+   * explorer's @-reference path exactly: insert a structured @file chip
+   * (path relative to the session cwd) with a plain `@rel` fallback when the
+   * host's structured insert is unavailable — the agent then resolves the
+   * file content itself on send, so arbitrary file sizes/types are fine.
+   */
+  const addFileToConversation = (): void => {
+    if (scope.sessionId === undefined) return
+    const rel = relativeTo(scope.cwd ?? '', path)
+    if (!insertFileReference(ctx, scope.sessionId, rel)) {
+      appendToDraft(ctx, scope.sessionId, `@${rel}`)
+    }
+  }
+
   /** The markdown source the preview renders (draft wins over saved content). */
   const mdText = draft ?? content ?? ''
   /** Preview-only source with a closed leading YAML frontmatter block hidden.
@@ -466,6 +482,15 @@ export function TextEditor(props: FileViewerProps) {
           </button>
         )}
         {saveLabel !== '' && <span className={clsx(css.editorStatus, saveState === 'failed' && css.editorStatusError)}>{saveLabel}</span>}
+        <button
+          type="button"
+          className={css.iconButton}
+          aria-label={t('addToConversation')}
+          title={t('addToConversation')}
+          onClick={addFileToConversation}
+        >
+          <IconSendOutline16 />
+        </button>
       </div>
       )}
       {editable && (
