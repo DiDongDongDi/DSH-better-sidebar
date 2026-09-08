@@ -467,3 +467,59 @@ export function shellSpawnArgs(configured: string[] = []): string[] {
   if (configured.length > 0) return [...configured]
   return process.platform === 'win32' ? [] : ['-l']
 }
+
+/**
+ * Strip ONE pair of surrounding quotes from a configured shell path. Users
+ * paste Windows paths with spaces pre-quoted (`"C:\Program Files\…"`); the
+ * quotes are shell-input syntax, not part of the path. Unpaired quotes and
+ * shorter values stay verbatim.
+ */
+export function unquotePath(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0]
+    const last = value[value.length - 1]
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) return value.slice(1, -1)
+  }
+  return value
+}
+
+/**
+ * Split a settings-page shell-arguments string into argv with quote-aware
+ * grouping: `'…'` / `"…"` group whitespace, and characters inside quotes are
+ * LITERAL — a backslash is never an escape, so Windows paths survive intact
+ * (`-File "C:\my init\init.ps1"` → three tokens, the last containing spaces).
+ * The price is that an argument containing a literal quote character cannot
+ * be expressed; shell startup arguments never need one. An unclosed quote
+ * folds the remainder into the current token (settings input stays
+ * forgiving); an empty quote pair yields no argument.
+ */
+export function splitShellArgs(input: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  let started = false
+  for (const ch of input) {
+    if (quote !== null) {
+      if (ch === quote) quote = null
+      else current += ch
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      started = true
+      continue
+    }
+    if (/\s/.test(ch)) {
+      if (started) {
+        args.push(current)
+        current = ''
+        started = false
+      }
+      continue
+    }
+    current += ch
+    started = true
+  }
+  if (started) args.push(current)
+  return args.filter(arg => arg !== '')
+}

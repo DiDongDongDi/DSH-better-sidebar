@@ -22,6 +22,8 @@ import {
   resolveShellExecutable,
   shellDisplayName,
   shellSpawnArgs,
+  splitShellArgs,
+  unquotePath,
 } from '../src/pty-manager.ts'
 
 describe('pty helpers', () => {
@@ -155,5 +157,35 @@ describe('pty helpers', () => {
     const helper = candidates.find(existsSync)
     expect(helper).toBeTruthy()
     expect((statSync(helper!).mode & 0o111) !== 0).toBe(true)
+  })
+
+  it('unquotes a paired surrounding quote from a configured shell path', () => {
+    expect(unquotePath('"C:\\Program Files\\PowerShell\\7\\pwsh.exe"'))
+      .toBe('C:\\Program Files\\PowerShell\\7\\pwsh.exe')
+    expect(unquotePath("'/usr/bin/my shell'")).toBe('/usr/bin/my shell')
+    // Unpaired or single characters stay verbatim.
+    expect(unquotePath('"mismatched')).toBe('"mismatched')
+    expect(unquotePath('pwsh.exe')).toBe('pwsh.exe')
+    expect(unquotePath('"')).toBe('"')
+    expect(unquotePath('')).toBe('')
+  })
+
+  it('splits shell args with quote-aware grouping', () => {
+    expect(splitShellArgs('-NoLogo -File "C:\\my init\\init.ps1"'))
+      .toEqual(['-NoLogo', '-File', 'C:\\my init\\init.ps1'])
+    // Single quotes group too, and preserve inner double quotes verbatim.
+    expect(splitShellArgs("-c 'echo \"hi\"'")).toEqual(['-c', 'echo "hi"'])
+    expect(splitShellArgs('  -l   ')).toEqual(['-l'])
+    expect(splitShellArgs('')).toEqual([])
+    expect(splitShellArgs('   ')).toEqual([])
+  })
+
+  it('keeps backslashes literal inside quotes and tolerates an unclosed quote', () => {
+    // Backslash is NOT an escape (Windows paths): "C:\a\" ends with a slash.
+    expect(splitShellArgs('"C:\\a\\"')).toEqual(['C:\\a\\'])
+    // An unclosed quote folds the remainder into one token instead of erroring.
+    expect(splitShellArgs('"unclosed quote')).toEqual(['unclosed quote'])
+    // Empty quote pairs produce no empty-string argument.
+    expect(splitShellArgs('"" x')).toEqual(['x'])
   })
 })
