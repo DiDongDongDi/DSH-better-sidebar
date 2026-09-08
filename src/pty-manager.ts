@@ -336,8 +336,10 @@ function windowsPwshCandidateDirs(env: NodeJS.ProcessEnv): string[] {
 /**
  * Resolve the configured shell executable before handing it to node-pty.
  *
- * POSIX node-pty uses `execvp`, so bare commands already follow PATH and are
- * passed through unchanged. Windows' native backend does not consistently
+ * POSIX and Windows are both probed BEFORE spawn so a wrong configured name
+ * becomes a stable, actionable `shell-not-found` error instead of a bare
+ * "[process exited with code N]" (POSIX execvp) or an opaque native string
+ * (Windows). Windows' native backend additionally does not consistently
  * apply the shell's PATHEXT lookup to a bare value (`pwsh` / `cmd` can fail
  * with the opaque `File not found:` error), so perform the lookup ourselves:
  *
@@ -345,8 +347,8 @@ function windowsPwshCandidateDirs(env: NodeJS.ProcessEnv): string[] {
  *   suffix when the user omitted `.exe`),
  * - a bare name is searched through PATH, System32, and PowerShell's known
  *   install directories,
- * - failure becomes a stable, actionable pty-error instead of a native
- *   backend string with no mention of the configured shell.
+ * - failure becomes a stable, actionable `shell-not-found` error instead of
+ *   a native backend string with no mention of the configured shell.
  */
 export function resolveShellExecutable(
   shell: string,
