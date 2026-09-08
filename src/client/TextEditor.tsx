@@ -35,6 +35,7 @@ import { analyzeMarkdownHtml } from './markdown-html.ts'
 import { LazyMermaidMarkdown, MarkdownDocument, type MarkdownHtmlMedia } from './MarkdownHtml.tsx'
 import { MdToc } from './md-toc.tsx'
 import { splitMermaidBlocks } from './mermaid-blocks.ts'
+import { flipPreviewTask } from './task-toggle.ts'
 import { t } from './locales.ts'
 import { HTML_IFRAME_SANDBOX } from './html-preview.ts'
 import type { EditorToolbarState, FileViewerProps } from './service.ts'
@@ -326,6 +327,61 @@ export function TextEditor(props: FileViewerProps) {
     el.scrollTop = previewScrollRef.current
     requestAnimationFrame(() => { restoringRef.current = false })
   }, [mode, previewMdText])
+
+  /**
+   * Interactive task-list checkboxes in the markdown preview. MarkdownText
+   * renders every task checkbox `disabled`, so (1) re-enable the rendered
+   * checkboxes after each preview render, and (2) a user change is mapped
+   * back to its source line and written to the file — the flip also lands in
+   * the CodeMirror document (undo history + edit/preview state stay in sync)
+   * and the draft refresh re-renders the preview instantly. Chat message
+   * checkboxes (rendered by the same primitive elsewhere) are untouched:
+   * everything here is scoped to this preview container.
+   */
+  useEffect(() => {
+    if (!markdown || mode !== 'preview') return
+    const container = mdRef.current
+    if (container === null) return
+    const checkboxes = Array.from(
+      container.querySelectorAll<HTMLInputElement>('li.task-list-item > input[type="checkbox"]'),
+    )
+    for (const checkbox of checkboxes) checkbox.disabled = false
+    const handleChange = (event: Event): void => {
+      const target = event.target
+      if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return
+      if (target.closest('li.task-list-item') === null) return
+      const index = checkboxes.indexOf(target)
+      if (index === -1) return
+      const view = viewRef.current
+      if (view === null) return
+      const source = view.state.doc.toString()
+      const flip = flipPreviewTask(source, previewMdText, index)
+      if (!flip.ok) {
+        // The browser already flipped the box; put it back — the file wins.
+        target.checked = !target.checked
+        return
+      }
+      const docLine = view.state.doc.line(flip.fullLineIndex + 1)
+      view.dispatch({
+        changes: { from: docLine.from, to: docLine.to, insert: flip.newLine },
+        // Park the cursor on the toggled line (visible feedback on focus).
+        selection: { anchor: docLine.from },
+      })
+      setDraft(view.state.doc.toString())
+      setSaveState('saving')
+      api.fsWrite(scope, path, view.state.doc.toString()).then(() => {
+        setDirty(false)
+        setSaveState('saved')
+      }).catch(() => {
+        setSaveState('failed')
+      })
+    }
+    container.addEventListener('change', handleChange)
+    return () => { container.removeEventListener('change', handleChange) }
+    // Re-enable + re-bind after every preview content change: MarkdownText
+    // re-creates the checkbox DOM nodes whenever the rendered source changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markdown, mode, previewMdText])
 
   /** The preview source with local image destinations rewritten to absolute
    *  media URLs (see {@link rewriteLocalImageUrls}). */
