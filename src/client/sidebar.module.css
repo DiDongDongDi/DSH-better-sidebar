@@ -1895,6 +1895,46 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   font: var(--dsw-font-xs-13);
 }
 
+/* File-preview color theme `vivid` (data-md-preview-theme). Element
+   selectors only — MarkdownText CSS Modules hashes are not a contract.
+   All colors stay on --dsw-alias-* tokens (skin-compat §12). Scope is
+   `.editorMd` only; Side Chat / Changes reading mode are untouched. */
+.editorMd[data-md-preview-theme="vivid"] {
+  /* Slightly stronger inline-code chip than the host default. */
+  --dsw-alias-markdown-inline-code: var(--dsw-alias-bg-layer-2);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(h1, h2) {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(h2) {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(h3) {
+  color: var(--dsw-alias-label-primary);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(blockquote) {
+  border-left-color: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(hr) {
+  background: var(--dsw-alias-border-l1);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(th) {
+  background: var(--dsw-alias-bg-layer-2);
+  border-bottom-color: var(--dsw-alias-border-l3);
+}
+
+.editorMd[data-md-preview-theme="vivid"] :where(td) {
+  border-bottom-color: var(--dsw-alias-border-l2);
+}
+
 /* The DSH CodeBlock banner is position:sticky (top:0, z-index:6) so a block
    keeps its copy action reachable inside a per-message scroll container —
    the right call in chat, where each block owns its scroll box. In the file
