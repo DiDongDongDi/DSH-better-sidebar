@@ -1,8 +1,11 @@
 /**
  * Recursive file-name search for the editor's merged-mode side panel.
- * Streams the tree with opendir and matches the query as a case-insensitive
- * substring of each entry's NAME (paths stay relative to the search root —
- * the client resolves them against the session cwd). No .gitignore semantics
+ * Streams the tree with opendir and matches a whitespace-split query as
+ * case-insensitive substrings (paths stay relative to the search root —
+ * the client resolves them against the session cwd). A single token matches
+ * the entry NAME only; multiple tokens require every token to appear in the
+ * entry's relative path (intersection — order-independent), so
+ * `微黄金 搬迁` can hit `微黄金/搬迁方案.md`. No .gitignore semantics
  * (this is a name lookup, not a code search), but known noise directories
  * (`.git`, `node_modules`, package-manager stores, build caches) are
  * skipped outright — and the settings-page `searchExcludeDirs` list merges
@@ -93,19 +96,37 @@ export function parseSearchExcludeDirs(raw: string): string[] {
   return out
 }
 
+/** Split `query` on whitespace into lowercase tokens; empty / blank → []. */
+export function tokenizeQuery(query: string): string[] {
+  const trimmed = query.trim().toLowerCase()
+  if (trimmed === '') return []
+  return trimmed.split(/\s+/).filter(token => token.length > 0)
+}
+
 /**
- * Search `root` recursively for entries whose name contains `query`
- * (case-insensitive).
+ * Whether an entry matches the tokenized query.
+ * Single token → basename substring; multiple → every token in the
+ * '/'-separated relative path (intersection).
+ */
+function entryMatches(name: string, relativePosix: string, tokens: string[]): boolean {
+  if (tokens.length === 1) return name.toLowerCase().includes(tokens[0]!)
+  const haystack = relativePosix.toLowerCase()
+  return tokens.every(token => haystack.includes(token))
+}
+
+/**
+ * Search `root` recursively for entries matching `query` (case-insensitive
+ * substrings; whitespace-split tokens are AND'd — see file header).
  * @param root - absolute search root.
- * @param query - the name substring; empty matches nothing.
+ * @param query - name / path substrings; empty matches nothing.
  * @param opts - budget overrides (tests) and optional extra skip dirs.
  * @returns the matching paths RELATIVE to `root` ('/'-separated), sorted,
  *  plus whether a budget cut the walk short. An unreadable level is skipped
  *  (permission errors never fail the whole search).
  */
 export async function searchFiles(root: string, query: string, opts: FsSearchOptions = {}): Promise<FsSearchResult> {
-  const needle = query.trim().toLowerCase()
-  if (needle === '') return { matches: [], truncated: false }
+  const tokens = tokenizeQuery(query)
+  if (tokens.length === 0) return { matches: [], truncated: false }
   const maxMatches = opts.maxMatches ?? DEFAULT_MAX_MATCHES
   const maxVisited = opts.maxVisited ?? DEFAULT_MAX_VISITED
   const skip = new Set(SEARCH_SKIP_DIRS)
@@ -131,8 +152,10 @@ export async function searchFiles(root: string, query: string, opts: FsSearchOpt
       // Dependency / VCS / build-output forests (+ user excludes): never
       // matched, never descended.
       if (dirent.isDirectory() && skip.has(dirent.name.toLowerCase())) continue
-      if (dirent.name.toLowerCase().includes(needle)) {
-        matches.push(join(relative(root, dir), dirent.name))
+      const rel = join(relative(root, dir), dirent.name)
+      const relPosix = rel.split(sep).join('/')
+      if (entryMatches(dirent.name, relPosix, tokens)) {
+        matches.push(rel)
         if (matches.length >= maxMatches) {
           truncated = true
           return

@@ -1,7 +1,8 @@
 /**
  * fs-search: the host's recursive file-name search behind the editor side
- * panel's search box. Matches are case-insensitive name substrings, reported
- * RELATIVE to the root ('/'-separated); noise directories (`.git`,
+ * panel's search box. Matches are case-insensitive substrings (single token
+ * → entry name; whitespace-split tokens → AND over the relative path),
+ * reported RELATIVE to the root ('/'-separated); noise directories (`.git`,
  * `node_modules`, build caches) are skipped, symlinked directories are
  * never descended (cycle safety), and the maxMatches/maxVisited budgets
  * stop a runaway walk with `truncated: true`.
@@ -151,6 +152,25 @@ describe('fs-search', () => {
     try {
       expect(await searchFiles(dir, '')).toEqual({ matches: [], truncated: false })
       expect(await searchFiles(dir, '   ')).toEqual({ matches: [], truncated: false })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('AND-matches whitespace-split tokens (basename and cross-path)', async () => {
+    const dir = makeFixture()
+    try {
+      // Both tokens in the basename.
+      expect((await searchFiles(dir, 'util ts')).matches).toEqual(['src/util.ts'])
+      // Tokens spanning directory + file segments of the relative path.
+      expect((await searchFiles(dir, 'src util')).matches).toEqual(['src/util.ts'])
+      // No path contains both tokens.
+      expect((await searchFiles(dir, 'util guide')).matches).toEqual([])
+      // Single-token behaviour unchanged (basename only; case-insensitive).
+      expect((await searchFiles(dir, 'util')).matches).toEqual(['src/util.ts'])
+      expect((await searchFiles(dir, 'UTIL')).matches).toEqual(['src/util.ts'])
+      // Extra whitespace collapses the same as a single space.
+      expect((await searchFiles(dir, '  util   ts  ')).matches).toEqual(['src/util.ts'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
