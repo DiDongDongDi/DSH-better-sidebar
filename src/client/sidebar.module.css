@@ -2688,10 +2688,12 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
 .tocItem[data-level='5'] { padding-left: 48px; }
 .tocItem[data-level='6'] { padding-left: 58px; }
 
-/* The tiny level number keeps deep outlines scannable. */
+/* Hierarchical outline numbers (1 / 1.1 / 1.1.1) keep deep outlines scannable. */
 .tocItemLevel {
   flex: none;
   font: var(--dsw-font-xxxs-11);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
 }
 
