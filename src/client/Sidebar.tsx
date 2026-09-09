@@ -583,7 +583,9 @@ export function Sidebar(props: { ctx: Context; store: SidebarStore }) {
     // Add a file tab to the current conversation (tab context menu entry).
     // Same path as the explorer `@` button — see {@link referenceInChat}.
     addTabToConversation: (tabId) => {
-      const leaf = leafWithTab(store.getState().tree, tabId)
+      const current = store.getSnapshot().state
+      if (current === undefined) return
+      const leaf = leafWithTab(current.bottomSplits, tabId)
       const tab = leaf?.tabs.find(candidate => candidate.id === tabId)
       if (tab === undefined || tab.type !== 'file' || tab.path === undefined) return
       referenceInChatShared(ctx, sessionId, cwd, tab.path, false)
