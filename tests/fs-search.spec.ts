@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { searchFiles } from '../src/fs-search.ts'
+import { parseSearchExcludeDirs, searchFiles } from '../src/fs-search.ts'
 
 /**
  * Symlink creation needs extra privileges on Windows; the symlink case skips
@@ -106,6 +106,44 @@ describe('fs-search', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('honours opts.skipDirs merged with the built-in skip set', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-sidebar-search-skip-'))
+    try {
+      mkdirSync(join(dir, '.smart-env', 'multi'), { recursive: true })
+      mkdirSync(join(dir, 'notes'), { recursive: true })
+      writeFileSync(join(dir, '.smart-env', 'multi', 'foo.ajson'), 'noise')
+      writeFileSync(join(dir, 'notes', 'foo.md'), 'note')
+      // Without the extra skip, both name matches appear.
+      expect((await searchFiles(dir, 'foo')).matches).toEqual([
+        '.smart-env/multi/foo.ajson',
+        'notes/foo.md',
+      ])
+      // With skipDirs, the noise forest is neither matched nor descended.
+      expect((await searchFiles(dir, 'foo', { skipDirs: ['.smart-env'] })).matches)
+        .toEqual(['notes/foo.md'])
+      expect((await searchFiles(dir, 'smart-env', { skipDirs: ['.smart-env'] })).matches)
+        .toEqual([])
+      // Built-in skips still apply alongside user excludes.
+      mkdirSync(join(dir, 'node_modules', 'pkg'), { recursive: true })
+      writeFileSync(join(dir, 'node_modules', 'pkg', 'foo.js'), 'dep')
+      expect((await searchFiles(dir, 'foo', { skipDirs: ['.smart-env'] })).matches)
+        .toEqual(['notes/foo.md'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('parseSearchExcludeDirs normalizes basenames, case, and separators', () => {
+    expect(parseSearchExcludeDirs('')).toEqual([])
+    expect(parseSearchExcludeDirs('  .SMART-ENV/ , .obsidian  .cache')).toEqual([
+      '.smart-env',
+      '.obsidian',
+      '.cache',
+    ])
+    expect(parseSearchExcludeDirs('vendor/.smart-env/')).toEqual(['.smart-env'])
+    expect(parseSearchExcludeDirs('. , .. , /')).toEqual([])
   })
 
   it('an empty (or whitespace) query matches nothing without walking', async () => {

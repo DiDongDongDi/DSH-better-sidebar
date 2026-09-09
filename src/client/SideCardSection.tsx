@@ -573,6 +573,7 @@ export function SettingsBody(props: {
 export function SideCardSection({ store, service }: SideCardSectionProps) {
   const [prefs, setPrefs] = useState<SidebarPrefs>(() => store.getPrefs())
   const [widthDraft, setWidthDraft] = useState<string>(String(store.getPrefs().defaultWidthPercent))
+  const [searchExcludeDraft, setSearchExcludeDraft] = useState<string>(store.getPrefs().searchExcludeDirs)
   const [error, setError] = useState<string | null>(null)
   // Which feature's secondary settings popup is open (null = closed).
   const [settingsFor, setSettingsFor] = useState<TabDescriptor | FileViewerDescriptor | null>(null)
@@ -627,6 +628,7 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
       const next = parsePrefs(view.value)
       setPrefs(next)
       setWidthDraft(String(next.defaultWidthPercent))
+      setSearchExcludeDraft(next.searchExcludeDirs)
     }).catch(() => { /* the store's defaults stay authoritative */ })
     return () => { cancelled = true }
   }, [])
@@ -660,6 +662,7 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
     const settled = outcome.ok ? outcome.prefs : previous
     setPrefs(settled)
     setWidthDraft(String(settled.defaultWidthPercent))
+    setSearchExcludeDraft(settled.searchExcludeDirs)
   }
 
   /** Optimistically apply one pref patch, then commit (revert on failure). */
@@ -792,6 +795,17 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
     void commit({ defaultWidthPercent: clamped }).then(outcome => applyOutcome(previous, outcome))
   }
 
+  /** Persist the filename-search exclude list (trim only; empty is meaningful). */
+  const commitSearchExclude = (): void => {
+    const next = searchExcludeDraft.trim()
+    if (next === prefs.searchExcludeDirs) {
+      setSearchExcludeDraft(prefs.searchExcludeDirs)
+      return
+    }
+    setSearchExcludeDraft(next)
+    applyPref({ searchExcludeDirs: next })
+  }
+
   /**
    * One SMALL toggle card for the responsive inventory grid: the card's main
    * area is the switch (click to flips, visual state IS the state), the icon
@@ -922,6 +936,26 @@ export function SideCardSection({ store, service }: SideCardSectionProps) {
             checked={prefs.agentOpenTools}
             onChange={(next) => { applyPref({ agentOpenTools: next }) }}
           />
+        </div>
+        <div className={css.row}>
+          <span className={css.rowText}>
+            <span className={css.title}>{t('settingsSearchExcludeTitle')}</span>
+            <span className={css.desc}>{t('settingsSearchExcludeDesc')}</span>
+          </span>
+          <span className={css.control}>
+            <Input
+              type="text"
+              className={css.typedInput}
+              value={searchExcludeDraft}
+              placeholder={t('settingsSearchExcludePlaceholder')}
+              aria-label={t('settingsSearchExcludeTitle')}
+              onChange={event => { setSearchExcludeDraft(event.currentTarget.value) }}
+              onBlur={commitSearchExclude}
+              onKeyDown={event => {
+                if (event.key === 'Enter') event.currentTarget.blur()
+              }}
+            />
+          </span>
         </div>
         <div className={css.row}>
           <span className={css.rowText}>
