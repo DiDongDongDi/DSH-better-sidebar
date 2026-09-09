@@ -24,6 +24,7 @@ import { markdownTextProps } from './markdown-labels.tsx'
 import { api, htmlUrl } from './api.ts'
 import { markdownPreviewSource } from './markdown-frontmatter.ts'
 import { DEFAULT_IMAGE_DIR, imageDirOf, rewriteLocalImageUrls } from './markdown-images.ts'
+import { DEFAULT_PREVIEW_THEME, previewThemeOf, type MdPreviewTheme } from './markdown-preview-theme.ts'
 import { languageForPath } from './lang.ts'
 import { cmSurfaceTheme, CmThemeCompartment } from './cm-themes.ts'
 import { isDarkScheme, subscribeColorScheme } from './theme.ts'
@@ -73,10 +74,32 @@ function useImageDir(store: SidebarStore | undefined): string {
   )
 }
 
+/**
+ * The configured markdown file-preview color theme
+ * (`pluginSettings['markdown'].previewTheme`), reactive — flipping the
+ * setting in the Side card re-renders any open preview. Compositions
+ * without a store always read the default (`vivid`).
+ */
+function usePreviewTheme(store: SidebarStore | undefined): MdPreviewTheme {
+  const snapshot = useCallback(
+    () => store === undefined
+      ? DEFAULT_PREVIEW_THEME
+      : previewThemeOf(store.getSnapshot().prefs.pluginSettings['markdown']?.previewTheme),
+    [store],
+  )
+  return useSyncExternalStore(
+    useCallback((callback: () => void) => store?.subscribe(callback) ?? (() => { /* no store */ }), [store]),
+    snapshot,
+    snapshot,
+  )
+}
+
 export function TextEditor(props: FileViewerProps) {
   const { ctx, scope, path, viewerId, content, truncated } = props
   /** The configured Obsidian-embed image directory (markdown viewer setting). */
   const imageDir = useImageDir(props.store)
+  /** The configured file-preview color theme (markdown viewer setting). */
+  const previewTheme = usePreviewTheme(props.store)
   const [mode, setMode] = useState<ViewMode>('preview')
   /** The editor's current text (null while clean); preview renders this. */
   const [draft, setDraft] = useState<string | null>(null)
@@ -528,6 +551,7 @@ export function TextEditor(props: FileViewerProps) {
       {markdown && mode === 'preview' && (
         <div
           className={css.editorMd}
+          data-md-preview-theme={previewTheme}
           ref={mdRef}
           onMouseUp={handlePreviewMouseUp}
           onScroll={(event) => {
