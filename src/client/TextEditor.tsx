@@ -23,7 +23,8 @@ import { IconCheckOutline16, IconSendOutline16, MarkdownText } from '@deepseek-a
 import { markdownTextProps } from './markdown-labels.tsx'
 import { api, htmlUrl } from './api.ts'
 import { markdownPreviewSource } from './markdown-frontmatter.ts'
-import { DEFAULT_IMAGE_DIR, imageDirOf, rewriteLocalImageUrls } from './markdown-images.ts'
+import { DEFAULT_IMAGE_DIR, imageDirOf, resolveObsidianBaseDir, rewriteLocalImageUrls } from './markdown-images.ts'
+import { clipboardImageOf, obsidianImageEmbed } from './markdown-paste.ts'
 import { DEFAULT_PREVIEW_THEME, previewThemeOf, type MdPreviewTheme } from './markdown-preview-theme.ts'
 import { languageForPath } from './lang.ts'
 import { cmSurfaceTheme, CmThemeCompartment } from './cm-themes.ts'
@@ -105,9 +106,19 @@ export function TextEditor(props: FileViewerProps) {
   const [draft, setDraft] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  /** Transient paste-image failure note (cleared on the next successful paste). */
+  const [pasteFailed, setPasteFailed] = useState(false)
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<CodeMirrorView | null>(null)
   const savingRef = useRef(false)
+  /** Guards overlapping paste-image uploads (clipboard fires can repeat). */
+  const pastingRef = useRef(false)
+  /** Same-second paste counter so concurrent pastes do not collide on disk. */
+  const pasteSuffixRef = useRef(0)
+  const pasteStampRef = useRef('')
+  /** Live scope/path/imageDir for the paste handler (view is not recreated on flips). */
+  const pasteCtxRef = useRef({ scope, path, imageDir })
+  pasteCtxRef.current = { scope, path, imageDir }
   /** The theme compartment of the current view (reconfigured on scheme flip). */
   const themeCompRef = useRef<CmThemeCompartment | null>(null)
   /** The app's resolved color scheme; the editor re-themes in place on flips. */
@@ -206,6 +217,58 @@ export function TextEditor(props: FileViewerProps) {
           ...defaultKeymap,
           ...historyKeymap,
         ]),
+        // Markdown paste-image: clipboard image/* → upload under imageDir →
+        // insert `![[name.ext]]` at the cursor. Plain-text pastes fall through.
+        ...(viewerId === 'markdown' ? [
+          CodeMirrorView.domEventHandlers({
+            paste(event, _view) {
+              const now = new Date()
+              const stamp = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+                '-',
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+                String(now.getSeconds()).padStart(2, '0'),
+              ].join('')
+              if (stamp !== pasteStampRef.current) {
+                pasteStampRef.current = stamp
+                pasteSuffixRef.current = 0
+              } else {
+                pasteSuffixRef.current += 1
+              }
+              const image = clipboardImageOf(
+                event.clipboardData,
+                now,
+                pasteSuffixRef.current > 0 ? pasteSuffixRef.current : undefined,
+              )
+              if (image === undefined) return false
+              event.preventDefault()
+              if (pastingRef.current) return true
+              pastingRef.current = true
+              setPasteFailed(false)
+              const { scope: liveScope, path: livePath, imageDir: liveDir } = pasteCtxRef.current
+              const dir = resolveObsidianBaseDir(liveDir, liveScope, livePath)
+              void api.uploadFile(liveScope, dir, image.fileName, image.blob).then(() => {
+                pastingRef.current = false
+                const live = viewRef.current
+                if (live === null) return
+                const embed = obsidianImageEmbed(image.fileName)
+                const sel = live.state.selection.main
+                live.dispatch({
+                  changes: { from: sel.from, to: sel.to, insert: embed },
+                  selection: { anchor: sel.from + embed.length },
+                })
+                setDirty(true)
+              }).catch(() => {
+                pastingRef.current = false
+                setPasteFailed(true)
+              })
+              return true
+            },
+          }),
+        ] : []),
         // Selection popup (the code and markdown editors): a non-empty
         // selection anchors the floating "add to conversation" button above
         // its head. Scrolling (geometry/viewport change) or losing focus
@@ -343,6 +406,7 @@ export function TextEditor(props: FileViewerProps) {
       savingRef.current = false
       setDraft(null)
       setDirty(false)
+      setPasteFailed(false)
       setSaveState('saved')
     }).catch(() => {
       savingRef.current = false
@@ -461,6 +525,7 @@ export function TextEditor(props: FileViewerProps) {
   }
   const editable = content !== undefined
   const saveLabel = saveState === 'saving' ? t('loading') : saveState === 'saved' ? t('saved') : saveState === 'failed' ? t('saveFailed') : ''
+  const statusLabel = pasteFailed ? t('pasteImageFailed') : saveLabel
   // Per-feature sandbox escape hatch: the global side card setting (warned)
   // plus a per-surface temporary unlock. The unlock state starts at the
   // "default unsafe" pref so a preview can open straight into the red
@@ -527,7 +592,7 @@ export function TextEditor(props: FileViewerProps) {
             <IconCheckOutline16 />
           </button>
         )}
-        {saveLabel !== '' && <span className={clsx(css.editorStatus, saveState === 'failed' && css.editorStatusError)}>{saveLabel}</span>}
+        {statusLabel !== '' && <span className={clsx(css.editorStatus, (saveState === 'failed' || pasteFailed) && css.editorStatusError)}>{statusLabel}</span>}
         <button
           type="button"
           className={css.iconButton}
