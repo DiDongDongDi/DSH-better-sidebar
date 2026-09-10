@@ -126,13 +126,13 @@ export function resolveLocalMediaDest(
 }
 
 /**
- * The directory Obsidian embeds resolve against: an absolute `imageDir`
- * config is used verbatim; a relative one is anchored at the session cwd
- * (the project root — Obsidian embeds are vault-root-relative, not
- * file-relative), falling back to the opened file's directory when the
- * scope carries no cwd.
+ * The directory Obsidian embeds resolve against (and where pasted images
+ * are written): an absolute `imageDir` config is used verbatim; a relative
+ * one is anchored at the session cwd (the project root — Obsidian embeds
+ * are vault-root-relative, not file-relative), falling back to the opened
+ * file's directory when the scope carries no cwd.
  */
-function resolveObsidianBaseDir(imageDir: string, scope: SessionScope, filePath: string): string {
+export function resolveObsidianBaseDir(imageDir: string, scope: SessionScope, filePath: string): string {
   if (isAbsolutePath(imageDir)) return imageDir.replace(/[\\/]+$/, '')
   const slash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
   const directory = slash === -1 ? '/' : filePath.slice(0, slash + 1)
