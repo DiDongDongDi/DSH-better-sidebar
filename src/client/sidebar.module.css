@@ -1601,15 +1601,19 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
 }
 
 /* Host MarkdownText zeros first-column (and last-td) cell padding so
-   tables flush with surrounding prose in chat bubbles. File preview
-   tables sit in their own scroll box — restore the horizontal inset so
-   the first column is not flush against the cell edge. Match the host's
+   tables flush with surrounding prose in chat bubbles
+   (`.tableScroll th:first-child { padding-left: 0 }` — specificity
+   0,2,1). File preview tables sit in their own scroll box — restore the
+   horizontal inset so the first column is not flush against the cell
+   edge. Do NOT wrap the cell selectors in `:where()`: that drops
+   specificity to (0,1,0) and the host rule wins. Match the host's
    resting `10px 16px` cell padding. Scope is `.editorMd` only. */
-.editorMd :where(th, td):first-child {
+.editorMd table th:first-child,
+.editorMd table td:first-child {
   padding-left: 16px;
 }
 
-.editorMd :where(td):last-child {
+.editorMd table td:last-child {
   padding-right: 16px;
 }
 
