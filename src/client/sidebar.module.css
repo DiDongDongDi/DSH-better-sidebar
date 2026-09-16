@@ -1600,6 +1600,25 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   font: var(--dsw-font-xs-13);
 }
 
+/* Host MarkdownText zeros first-column (and last-td) cell padding so
+   tables flush with surrounding prose in chat bubbles. File preview
+   tables sit in their own scroll box — restore the horizontal inset so
+   the first column is not flush against the cell edge. Match the host's
+   resting `10px 16px` cell padding. Scope is `.editorMd` only. */
+.editorMd :where(th, td):first-child {
+  padding-left: 16px;
+}
+
+.editorMd :where(td):last-child {
+  padding-right: 16px;
+}
+
+/* Preview task checkboxes are re-enabled by TextEditor (write-back to the
+   source file); give the pointer the same affordance as other controls. */
+.editorMd :global(li.task-list-item) > input[type='checkbox'] {
+  cursor: pointer;
+}
+
 /* File-preview color theme `vivid` (data-md-preview-theme). Element
    selectors only — MarkdownText CSS Modules hashes are not a contract.
    All colors stay on --dsw-alias-* tokens (skin-compat §12). Scope is
